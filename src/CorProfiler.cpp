@@ -5,7 +5,7 @@
 #include <iostream>
 #include <atomic>
 #include <assert.h>
-#include "corprofiler.h"
+#include "CorProfiler.h"
 
 using std::cout;
 using std::endl;
@@ -200,13 +200,10 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITFunctionPitched(FunctionID functionId)
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITInlining(FunctionID callerId, FunctionID calleeId, BOOL* pfShouldInline)
 {
-    wstring inlinerName;
-    wstring inlineeName;
+    String inlinerName = GetFunctionIDName(callerId);
+    String inlineeName = GetFunctionIDName(calleeId);
 
-    GetFunctionIDName(callerId, inlinerName);
-    GetFunctionIDName(calleeId, inlineeName);
-
-    //wcout << L"Function " << inlineeName << L" inlined in to function " << inlinerName << endl;
+    wcout << L"Function " << inlineeName << L" inlined in to function " << inlinerName << endl;
 
     return S_OK;
 }
@@ -618,7 +615,6 @@ HRESULT STDMETHODCALLTYPE CorProfiler::EnterCallback(FunctionIDOrClientID functi
     ParamSigParser parser;
     if (!parser.Parse((sig_byte*)pSig, pSigBytes))
     {
-        DebugBreak();
         printf("Signature wasn't parsed by the parser.\n");
         return E_FAIL;
     }
@@ -827,8 +823,7 @@ void CorProfiler::PrettyPrintArgument(IMetaDataImport2 *metadataImport, TypeInfo
 
 HRESULT STDMETHODCALLTYPE CorProfiler::LeaveCallback(FunctionIDOrClientID functionId, COR_PRF_ELT_INFO eltInfo)
 {
-    wstring name;
-    GetFunctionIDName(functionId.functionID, name);
+    String name = GetFunctionIDName(functionId.functionID);
 
     wcout << L"Function Left: " << name << endl;
     return S_OK;
@@ -836,21 +831,21 @@ HRESULT STDMETHODCALLTYPE CorProfiler::LeaveCallback(FunctionIDOrClientID functi
 
 HRESULT STDMETHODCALLTYPE CorProfiler::TailcallCallback(FunctionIDOrClientID functionId, COR_PRF_ELT_INFO eltInfo)
 {
-    wstring name;
-    GetFunctionIDName(functionId.functionID, name);
+    String name = GetFunctionIDName(functionId.functionID);
 
     wcout << L"Function Tailcall: " << name << endl;
     return S_OK;
 }
 
-HRESULT CorProfiler::GetFunctionIDName(FunctionID funcId, wstring & name)
+String CorProfiler::GetFunctionIDName(FunctionID funcId)
 {
     // If the FunctionID is 0, we could be dealing with a native function.
     if (funcId == NULL)
     {
-        name += L"Unknown_Native_Function";
-        return S_OK;
+        return WCHAR("Unknown_Native_Function");
     }
+
+    String name;
 
     ClassID classId = NULL;
     ModuleID moduleId = NULL;
@@ -887,5 +882,5 @@ HRESULT CorProfiler::GetFunctionIDName(FunctionID funcId, wstring & name)
 
     name += funcName;
 
-    return S_OK;
+    return name;
 }

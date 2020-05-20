@@ -71,6 +71,5 @@ vector<TypeInfo> ParamSigParser::getParamTypes()
 {
     assert(m_paramCount == m_paramTypes.size());
     
-    size_t sz = m_paramTypes.size();
     return m_paramTypes;
 }

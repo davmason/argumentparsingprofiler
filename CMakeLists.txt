@@ -5,7 +5,12 @@ project(CorProfiler)
 if(NOT WIN32)
     set(BASE_SOURCES )
     add_compile_options(-Wno-invalid-noreturn -Wno-pragma-pack -Wno-int-to-pointer-cast -fPIC -fms-extensions -DBIT64 -DPAL_STDCPP_COMPAT -DPLATFORM_UNIX -DHOST_64BIT -std=c++11)
-    add_link_options(--no-undefined -pthread)
+
+if (NOT APPLE)
+    add_link_options(--no-undefined error -pthread)
+else (NOT APPLE)
+    add_link_options(-undefined error -pthread)
+endif (NOT APPLE)
 
     include_directories($ENV{CORECLR_PATH}/src/pal/inc/rt $ENV{CORECLR_PATH}/src/pal/inc $ENV{CORECLR_PATH}/src/inc)
 endif(NOT WIN32)
@@ -13,6 +18,7 @@ endif(NOT WIN32)
 if (WIN32)
     set(BASE_SOURCES src/windows/CorProfiler.def)
 endif(WIN32)
+
 include_directories($CORECLR_BIN/inc $ENV{CORECLR_PATH}/src/pal/prebuilt/inc)
 
 set(SOURCES ${BASE_SOURCES} src/ClassFactory.cpp src/CorProfiler.cpp src/dllmain.cpp src/sigparser.cpp src/paramsigparser.cpp $ENV{CORECLR_PATH}/src/pal/prebuilt/idl/corprof_i.cpp)
