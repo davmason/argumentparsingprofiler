@@ -200,10 +200,10 @@ HRESULT STDMETHODCALLTYPE CorProfiler::JITFunctionPitched(FunctionID functionId)
 
 HRESULT STDMETHODCALLTYPE CorProfiler::JITInlining(FunctionID callerId, FunctionID calleeId, BOOL* pfShouldInline)
 {
-    String inlinerName = GetFunctionIDName(callerId);
-    String inlineeName = GetFunctionIDName(calleeId);
+    ManagedFunction inliner(m_pProfilerInfo, callerId);
+    ManagedFunction inlinee(m_pProfilerInfo, calleeId);
 
-    wcout << L"Function " << inlineeName << L" inlined in to function " << inlinerName << endl;
+    wcout << L"Function " << inlinee.GetName() << L" inlined in to function " << inliner.GetName() << endl;
 
     return S_OK;
 }
@@ -557,330 +557,40 @@ ULONG STDMETHODCALLTYPE CorProfiler::Release()
 
 HRESULT STDMETHODCALLTYPE CorProfiler::EnterCallback(FunctionIDOrClientID functionId, COR_PRF_ELT_INFO eltInfo)
 {
-    ULONG pcbArgumentInfo = 0;
-    COR_PRF_FRAME_INFO frameInfo;
-    HRESULT hr = m_pProfilerInfo->GetFunctionEnter3Info(functionId.functionID, eltInfo, &frameInfo, &pcbArgumentInfo, NULL);
-    if (hr != HRESULT_FROM_WIN32(ERROR_INSUFFICIENT_BUFFER) && FAILED(hr))
+    ManagedFunction thisFunc(m_pProfilerInfo, functionId.functionID, ELTType::Enter, eltInfo);
+
+    wcout << L"Function " << thisFunc.GetName() << L"entered" << endl;
+
+    wcout << L"    Args:" << endl;
+
+    for (int i = 0; i < thisFunc.GetParamCount(); ++i)
     {
-        printf("Error in GetFunctionEnter3Info!\n");
-        return E_FAIL;
-    }
+        ParameterType paramType = thisFunc.GetParamAt(i);
+        COR_PRF_FUNCTION_ARGUMENT_RANGE argValue = thisFunc.GetArgValueAt(i);
 
-    char* pArgumentInfo = new char[pcbArgumentInfo];
-    if (FAILED(m_pProfilerInfo->GetFunctionEnter3Info(functionId.functionID, eltInfo, &frameInfo, &pcbArgumentInfo, (COR_PRF_FUNCTION_ARGUMENT_INFO*)pArgumentInfo)))
-    {
-        printf("Error in GetFunctionEnter3Info call 2!\n");;
-        return E_FAIL;
-    }
-
-    COR_PRF_FUNCTION_ARGUMENT_INFO* ptr = (COR_PRF_FUNCTION_ARGUMENT_INFO*)pArgumentInfo;
-
-    ModuleID moduleID;
-    mdToken token;
-    const ULONG32 maxTypeArgs = 100;
-    ULONG32 numTypeArgs;
-    ClassID typeArgs[maxTypeArgs];
-
-    if (FAILED(m_pProfilerInfo->GetFunctionInfo2(functionId.functionID, frameInfo, NULL, &moduleID, &token, maxTypeArgs, &numTypeArgs, typeArgs)))
-    {
-        printf("Error in GetFunctionInfo2!\n");
-        return E_FAIL;
-    }
-
-    COMPtrHolder<IMetaDataImport2> metadataImport;
-    if (FAILED(m_pProfilerInfo->GetModuleMetaData(moduleID, ofWrite, IID_IMetaDataImport2, reinterpret_cast<IUnknown **>(&metadataImport))))
-    {
-        printf("Error getting metadata.\n");
-        return E_FAIL;
-    }
-
-    mdTypeDef td;
-    constexpr ULONG32 methodNameLen = 500;
-    WCHAR wszMethod[methodNameLen];
-    ULONG cchMethod;
-    DWORD dwAttr;
-    PCCOR_SIGNATURE pSig;
-    ULONG pSigBytes;
-    ULONG ulCodeRVA;
-    DWORD dwImplFlags;
-    if (FAILED(metadataImport->GetMethodProps(token, &td, wszMethod, methodNameLen, &cchMethod, &dwAttr, &pSig, &pSigBytes, &ulCodeRVA, &dwImplFlags)))
-    {
-        printf("Error getting MethodProps.\n");
-        return E_FAIL;
-    }
-
-    // TODO: get full type information
-    wprintf(L"Function entered: %s\n", wszMethod);
-
-    ParamSigParser parser;
-    if (!parser.Parse((sig_byte*)pSig, pSigBytes))
-    {
-        printf("Signature wasn't parsed by the parser.\n");
-        return E_FAIL;
-    }
-   
-    ULONG32 paramCount = parser.getParamCount();
-    ULONG32 numRanges = ptr->numRanges;
-    
-    bool hasThis = false;
-    if (numRanges == paramCount + 1)
-    {
-        hasThis = true;
-    }
-    else
-    {
-        assert(paramCount == numRanges);
-    }
-
-    vector<TypeInfo> infos = parser.getParamTypes();
-
-    if (hasThis)
-    {
-        printf("    This*=");
-        // TODO: is the index the token?
-        PrettyPrintArgument(metadataImport, { ELEMENT_TYPE_CLASS, SIG_INDEX_TYPE_TYPEDEF, (int)token, false }, &ptr->ranges[0]);
-        printf("\n");
-    }
-
-    for (ULONG i = 0; i < paramCount; ++i)
-    {
-        ULONG rangeIndex = i;
-        if (hasThis)
-        {
-            // Account for the secret this arg
-            rangeIndex++;
-        }
-
-        printf("    Argument %d=", i);
-        PrettyPrintArgument(metadataImport, infos.at(i), &ptr->ranges[rangeIndex]);
+        ManagedArgPrinter printer(paramType, argValue, m_pProfilerInfo);
+        printer.PrettyPrint(/*indentLevel*/ 2);
     }
 
     return S_OK;
 }
 
-void CorProfiler::PrettyPrintArgument(IMetaDataImport2 *metadataImport, TypeInfo ti, COR_PRF_FUNCTION_ARGUMENT_RANGE* arg)
-{
-    bool        boolValue;
-    char        charValue;
-    int8_t      int8Value;
-    uint8_t     uint8Value;
-    uint16_t    uint16Value;
-    int16_t     int16Value;
-    int32_t     int32Value;
-    uint32_t    uint32Value;
-    int64_t     int64Value;
-    uint64_t    uint64Value;
-    float       floatValue;
-    double      doubleValue;
-    WCHAR       *stringValue;
-    void        *ptrValue;
-
-    void* realStart = (void *)arg->startAddress;
-    if (ti.byref)
-    {
-        realStart = *((void **)realStart);
-    }
-
-    switch (ti.type)
-    {
-    case ELEMENT_TYPE_BOOLEAN:
-        //assert(arg->length == 1);
-        boolValue = *((bool *)arg->startAddress);
-        printf("Type: BOOL Value: %s", boolValue ? "true" : "false");
-        break;
-
-    case ELEMENT_TYPE_CHAR:
-        //assert(arg->length == 1);
-        charValue = *((char *)arg->startAddress);
-        printf("Type: CHAR Value: %c", charValue);
-        break;
-
-    case ELEMENT_TYPE_I1:
-        //assert(arg->length == 1);
-        int8Value = *((int8_t *)arg->startAddress);
-        printf("Type: INT8 Value: %d", int8Value);
-        break;
-
-    case ELEMENT_TYPE_U1:
-        //assert(arg->length == 1);
-        uint8Value = *((uint8_t *)arg->startAddress);
-        printf("Type: UINT8 Value: %u", uint8Value);
-        break;
-
-    case ELEMENT_TYPE_U2:
-        //assert(arg->length == 2);
-        uint16Value = *((uint16_t *)arg->startAddress);
-        printf("Type: UINT16 Value: %u", uint16Value);
-        break;
-
-    case ELEMENT_TYPE_I2:
-        //assert(arg->length == 2);
-        int16Value = *((int16_t *)arg->startAddress);
-        printf("Type: INT16 Value: %d", int16Value);
-        break;
-
-    case ELEMENT_TYPE_I4:
-        //assert(arg->length == 4);
-        int32Value = *((int32_t *)arg->startAddress);
-        printf("Type: INT32 Value: %d", int32Value);
-        break;
-
-    case ELEMENT_TYPE_U4:
-        //assert(arg->length == 4);
-        uint32Value = *((uint32_t *)arg->startAddress);
-        printf("Type: UINT32 Value: %u", uint32Value);
-        break;
-
-    case ELEMENT_TYPE_I8:
-        //assert(arg->length == 8);
-        int64Value = *((int64_t*)arg->startAddress);
-        printf("Type: INT64 Value: %" PRId64, int64Value);
-        break;
-
-    case ELEMENT_TYPE_U8:
-        //assert(arg->length == 8);
-        uint64Value = *((uint64_t *)arg->startAddress);
-        printf("Type: UINT64 Value: %" PRIu64, uint64Value);
-        break;
-
-    case ELEMENT_TYPE_R4:
-        //assert(arg->length == 4);
-        floatValue = *((float *)arg->startAddress);
-        printf("Type: FLOAT Value: %f", floatValue);
-        break;
-
-    case ELEMENT_TYPE_R8:
-        //assert(arg->length == 8);
-        doubleValue = *((double *)arg->startAddress);
-        printf("Type: DOUBLE Value: %f", doubleValue);
-        break;
-
-    case ELEMENT_TYPE_STRING:
-        //assert(arg->length == 8);
-        stringValue = *((WCHAR **)arg->startAddress);
-        wprintf(L"Type: STRING Value: %s", stringValue);
-        break;
-
-    case ELEMENT_TYPE_OBJECT:
-        //assert(arg->length == 8);
-        ptrValue = *((void **)arg->startAddress);
-        printf("Type: OBJREF Value: 0x%p", ptrValue);
-        break;
-
-    case ELEMENT_TYPE_PTR:
-    case ELEMENT_TYPE_CLASS:
-    case ELEMENT_TYPE_VALUETYPE:
-    case ELEMENT_TYPE_ARRAY:
-    case ELEMENT_TYPE_I: // IntPtr
-    case ELEMENT_TYPE_U: // UIntPtr
-    case ELEMENT_TYPE_FNPTR:
-    case ELEMENT_TYPE_SZARRAY:
-    case ELEMENT_TYPE_GENERICINST:
-    case ELEMENT_TYPE_VAR:
-    case ELEMENT_TYPE_MVAR:
-        //assert(false && "Not yet impletmented");
-        printf("Type not implemented yet");
-        break;
-    }
-
-    //if (false /* this is the string case */)
-    //{
-    //    wcout << "Argument " << i << endl;
-    //    ULONG pStringLengthOffset;
-    //    ULONG pBufferOffset;
-    //    if (FAILED(m_pProfilerInfo->GetStringLayout2(&pStringLengthOffset, &pBufferOffset)))
-    //    {
-    //        wcout << L"Error in GetStringLayout2!" << endl;
-    //        return E_FAIL;
-    //    }
-
-    //    //Assume some max string size
-    //    WCHAR tempString[128];
-    //    DWORD stringLength;
-
-    //    byte** stringAddr = reinterpret_cast<byte**>(ptr->ranges[i].startAddress);;
-    //    wcout << "stringaddr=" << std::hex << stringAddr << endl;
-    //    wcout << "*stringaddr=" << std::hex << *stringAddr << endl;
-
-    //    // It's perfectly valid for a reference to be null, and the code below will AV 
-    //    // if it is null.
-    //    if (*stringAddr == NULL)
-    //    {
-    //        wcout << "NULL argument" << endl;
-    //        continue;
-    //    }
-
-    //    // Assume objectOfInterestPosition as the position of the argument of interest
-    //    // NOTE: pStringLengthOffset and pBufferOffset are in bytes
-    //    memcpy(&stringLength, ((const void*)(*stringAddr + pStringLengthOffset)), sizeof(DWORD));
-    //    wcout << "stringlength=" << std::dec << stringLength << endl;
-
-    //    memcpy(tempString, ((const void*)(*stringAddr + pBufferOffset)), stringLength * sizeof(DWORD));
-    //    tempString[stringLength * sizeof(DWORD)] = '\0';
-    //    //tempString will now have the string value at objectOfInterestPosition of the method entered into 
-    //}
-}
-
 HRESULT STDMETHODCALLTYPE CorProfiler::LeaveCallback(FunctionIDOrClientID functionId, COR_PRF_ELT_INFO eltInfo)
 {
-    String name = GetFunctionIDName(functionId.functionID);
+    ManagedFunction thisFunc(m_pProfilerInfo, functionId.functionID, ELTType::Leave, eltInfo);
 
-    wcout << L"Function Left: " << name << endl;
+    // TODO: pretty print args on function leave
+
+    wcout << L"Function Left: " << thisFunc.GetName() << endl;
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE CorProfiler::TailcallCallback(FunctionIDOrClientID functionId, COR_PRF_ELT_INFO eltInfo)
 {
-    String name = GetFunctionIDName(functionId.functionID);
+    ManagedFunction thisFunc(m_pProfilerInfo, functionId.functionID, ELTType::Tailcall, eltInfo);
 
-    wcout << L"Function Tailcall: " << name << endl;
+    // TODO: pretty print args on function tailcall
+
+    wcout << L"Function Tailcall: " << thisFunc.GetName() << endl;
     return S_OK;
-}
-
-String CorProfiler::GetFunctionIDName(FunctionID funcId)
-{
-    // If the FunctionID is 0, we could be dealing with a native function.
-    if (funcId == NULL)
-    {
-        return WCHAR("Unknown_Native_Function");
-    }
-
-    String name;
-
-    ClassID classId = NULL;
-    ModuleID moduleId = NULL;
-    mdToken token = NULL;
-    ULONG32 nTypeArgs = NULL;
-    ClassID typeArgs[SHORT_LENGTH];
-
-    m_pProfilerInfo->GetFunctionInfo2(funcId,
-        0,
-        &classId,
-        &moduleId,
-        &token,
-        SHORT_LENGTH,
-        &nTypeArgs,
-        typeArgs);
-
-    COMPtrHolder<IMetaDataImport> pIMDImport;
-    m_pProfilerInfo->GetModuleMetaData(moduleId,
-        ofRead,
-        IID_IMetaDataImport,
-        (IUnknown * *)& pIMDImport);
-
-    WCHAR funcName[STRING_LENGTH];
-    pIMDImport->GetMethodProps(token,
-        NULL,
-        funcName,
-        STRING_LENGTH,
-        0,
-        0,
-        NULL,
-        NULL,
-        NULL,
-        NULL);
-
-    name += funcName;
-
-    return name;
 }

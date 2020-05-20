@@ -21,6 +21,15 @@ endif(WIN32)
 
 include_directories($CORECLR_BIN/inc $ENV{CORECLR_PATH}/src/pal/prebuilt/inc)
 
-set(SOURCES ${BASE_SOURCES} src/ClassFactory.cpp src/CorProfiler.cpp src/dllmain.cpp src/sigparser.cpp src/paramsigparser.cpp $ENV{CORECLR_PATH}/src/pal/prebuilt/idl/corprof_i.cpp)
+set(SOURCES
+    ${BASE_SOURCES}
+    src/ClassFactory.cpp
+    src/CorProfiler.cpp
+    src/dllmain.cpp
+    src/managedfunction.cpp
+    src/managedargprinter.cpp
+    src/sigparser.cpp
+    src/paramsigparser.cpp
+    $ENV{CORECLR_PATH}/src/pal/prebuilt/idl/corprof_i.cpp)
 
 add_library(CorProfiler SHARED ${SOURCES})

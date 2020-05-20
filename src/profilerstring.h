@@ -1,17 +1,24 @@
-// Copyright (c) .NET Foundation and contributors. All rights reserved.
-// Licensed under the MIT license. See LICENSE file in the project root for full license information.
+// Licensed to the .NET Foundation under one or more agreements.
+// The .NET Foundation licenses this file to you under the MIT license.
+// See the LICENSE file in the project root for more information.
 
 #pragma once
 
 #include <iostream>
 #include <assert.h>
 #include <cstring>
+#include <string>
 
-#if defined(__linux__) || defined(__APPLE__)
+#if defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
+
+// Definitely won't work for non-ascii characters so hopefully we never start using
+// them in the tests
+#define CAST_CHAR(ch) static_cast<wchar_t>(ch)
+
 // On linux the runtime uses 16 bit strings but the native platform wchar_t is 32 bit.
 // This means there aren't c runtime functions like wcslen for 16 bit strings. The idea
-// here is to provide the easy ones to avoid all the copying and transforming. If more complex 
-// string operations become necessary we should either write them in C++ or convert the string to 
+// here is to provide the easy ones to avoid all the copying and transforming. If more complex
+// string operations become necessary we should either write them in C++ or convert the string to
 // 32 bit and call the c runtime ones.
 using std::max;
 
@@ -49,9 +56,10 @@ inline int wcscmp(const char16_t *lhs, const char16_t *rhs)
     return lhs[i] - rhs[i];
 }
 
-#else // defined(__linux__) || defined(__APPLE__)
+#else // defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
 #define WCHAR(str) L##str
-#endif // defined(__linux__) || defined(__APPLE__)
+#define CAST_CHAR(ch) ch
+#endif // defined(__linux__) || defined(__APPLE__) || defined(__FreeBSD__)
 
 // 16 bit string type that works cross plat and doesn't require changing widths
 // on non-windows platforms
@@ -89,7 +97,7 @@ public:
     {
         CopyBuffer(s);
     }
- 
+
     ~String()
     {
         if (buffer != nullptr)
@@ -98,11 +106,11 @@ public:
             delete[] buffer;
         }
     }
- 
+
     String(const String& other) :
         buffer(nullptr),
         bufferLen(0)
-    { 
+    {
         CopyBuffer(other.buffer);
     }
 
@@ -113,10 +121,10 @@ public:
         std::swap(buffer, other.buffer);
         std::swap(bufferLen, other.bufferLen);
     }
- 
+
     String& operator=(const String& other)
     {
-        if(this != &other) 
+        if(this != &other)
         {
             if (other.buffer != nullptr)
             {
@@ -185,7 +193,23 @@ public:
             buffer[0] = 0;
         }
     }
-    
+
+    std::wstring ToWString()
+    {
+        std::wstring temp;
+        for (size_t i = 0; i < bufferLen; ++i)
+        {
+            if (buffer[i] == 0)
+            {
+                break;
+            }
+
+            temp.push_back(CAST_CHAR(buffer[i]));
+        }
+
+        return temp;
+    }
+
     size_t Size() const
     {
         return wcslen(buffer);
@@ -201,12 +225,8 @@ inline std::wostream& operator<<(std::wostream& os, const String& obj)
             break;
         }
 
-#if defined(__linux__) || defined(__APPLE__) 
-        os << static_cast<wchar_t>(obj.buffer[i]);
-#else // defined(__linux__) || defined(__APPLE__)
-        os << obj.buffer[i];
-#endif // defined(__linux__) || defined(__APPLE__)
+        os << CAST_CHAR(obj.buffer[i]);
     }
-    
+
     return os;
 }
