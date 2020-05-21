@@ -10,5 +10,4 @@ if not exist %~dp0\runtime\corerun.exe (
     goto :EOF
 )
 
-:: C:\dbg\x64\windbg 
-%~dp0\runtime\corerun.exe %~dp0\MultiThreadedApp.dll
+C:\dbg\x64\windbg %~dp0\runtime\corerun.exe %~dp0\sampleapp.dll

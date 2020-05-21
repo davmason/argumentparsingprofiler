@@ -563,15 +563,16 @@ HRESULT STDMETHODCALLTYPE CorProfiler::EnterCallback(FunctionIDOrClientID functi
 
     wcout << L"    Args:" << endl;
 
-    if (thisFunc.HasGenericParams())
-    {
-        wcout << L"Generic parameters not supported, skipping args." << endl;
-        return S_OK;
-    }
-
     bool hasThis = false;
     size_t paramCount = thisFunc.GetParamCount();
     size_t argCount = thisFunc.GetArgValueCount();
+
+    if (thisFunc.HasUnsupportedParams())
+    {
+        wcout << L"This function has parameters that are not yet supported, skipping." << endl;
+        return S_OK;
+    }
+
     if (argCount == paramCount + 1)
     {
         hasThis = true;

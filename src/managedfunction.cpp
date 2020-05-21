@@ -10,7 +10,7 @@ ManagedFunction::ManagedFunction(ICorProfilerInfo10 *pProfilerInfo, FunctionID f
     m_pProfilerInfo(pProfilerInfo),
     m_frameInfo(),
     m_populated(false),
-    m_hasGenericParams(false),
+    m_hasUnsupportedParams(false),
     m_paramTypes(),
     m_argRanges()
 {
@@ -99,9 +99,9 @@ void ManagedFunction::PopulateParamTypes()
         return;
     }
 
-    m_hasGenericParams = parser.hasGenericParams();
+    m_hasUnsupportedParams = parser.HasUnsupportedParams();
 
-    vector<TypeInfo> infos = parser.getParamTypes();
+    vector<TypeInfo> infos = parser.GetParamTypes();
     m_paramTypes.reserve(infos.size());
     for (auto &&info : infos)
     {
@@ -175,7 +175,7 @@ ParameterType ManagedFunction::ConvertTypeInfoToParameterType(ModuleID moduleID,
         {
             mdToken typeDef;
             ModuleID defModule;
-            ConvertTypeRefToTypeDef(tok, moduleID, &defModule, &typeDef);
+            ConvertTypeRefToTypeDef(moduleID, tok, &defModule, &typeDef);
 
             targetModule = defModule;
             targetToken = typeDef;
@@ -225,9 +225,9 @@ COR_PRF_FUNCTION_ARGUMENT_RANGE ManagedFunction::GetArgValueAt(size_t pos)
     return COR_PRF_FUNCTION_ARGUMENT_RANGE();
 }
 
-bool ManagedFunction::HasGenericParams()
+bool ManagedFunction::HasUnsupportedParams()
 {
-
+    return m_hasUnsupportedParams;
 }
 
 String ManagedFunction::GetName()

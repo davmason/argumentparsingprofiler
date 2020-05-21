@@ -30,7 +30,7 @@ private:
     COR_PRF_FRAME_INFO m_frameInfo;
 
     bool m_populated;
-    bool m_hasGenericParams;
+    bool m_hasUnsupportedParams;
     std::vector<ParameterType> m_paramTypes;
     std::vector<COR_PRF_FUNCTION_ARGUMENT_RANGE> m_argRanges;
 
@@ -49,6 +49,6 @@ public:
     ParameterType GetParamAt(size_t pos);
     size_t GetArgValueCount();
     COR_PRF_FUNCTION_ARGUMENT_RANGE GetArgValueAt(size_t pos);
-    bool HasGenericParams();
+    bool HasUnsupportedParams();
     String GetName();
 };

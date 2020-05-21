@@ -22,7 +22,9 @@ private:
     sig_index_type  m_indexType;
     int m_index;
     std::vector<TypeInfo> m_paramTypes;
-    bool m_hasGenericParams;
+    bool m_hasUnsupportedParams;
+    bool m_inParam;
+    bool m_inClass;
 
 protected:
     virtual void NotifyCallingConvention(sig_elem_type callingConv);
@@ -41,13 +43,25 @@ protected:
     virtual void NotifyByref();
 
     virtual void NotifyTypeDefOrRef(sig_index_type indexType, int index);
+
+    virtual void NotifyTypeGenericInst(sig_elem_type elem_type, sig_index_type indexType, sig_index index, sig_mem_number number);
+    virtual void NotifyTypeGenericTypeVariable(sig_mem_number number);
+    virtual void NotifyTypeGenericMemberVariable(sig_mem_number number);
+
+    virtual void NotifyTypeValueType();
+    virtual void NotifyTypeClass();
+    virtual void NotifyTypePointer();
+    virtual void NotifyTypeFunctionPointer();
+    virtual void NotifyTypeArray();
+    virtual void NotifyTypeSzArray();
+
 public:
     ParamSigParser();
     ~ParamSigParser() = default;
 
-    sig_elem_type getCallingConv();
-    int getParamCount();
-    bool hasGenericParams();
-    std::vector<TypeInfo> getParamTypes();
+    sig_elem_type GetCallingConv();
+    int GetParamCount();
+    bool HasUnsupportedParams();
+    std::vector<TypeInfo> GetParamTypes();
 };
 

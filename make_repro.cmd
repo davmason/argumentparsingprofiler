@@ -2,17 +2,17 @@
 setlocal
 
 echo.
-echo Building test app (multithreadedapp.dll)
+echo Building test app (sampleapp.dll)
 
-pushd multithreadedapp
+pushd sampleapp
 dotnet build -c release
 dotnet publish -r win10-x64 -c release
 popd
 
 echo.
-echo Building profiler library 
+echo Building profiler library
 
-call build.cmd
+call build-windows.cmd
 
 if exist repro\ (
     rmdir /s /q repro
@@ -34,11 +34,11 @@ copy ..\CorProfiler.dll .
 
 echo.
 echo Copying published files to runtime folder
-xcopy /y /e /q ..\multithreadedapp\bin\release\netcoreapp3.1\win10-x64\* runtime\
+xcopy /y /e /q ..\sampleapp\bin\release\netcoreapp3.1\win10-x64\* runtime\
 
 echo.
 echo Copying app files to repro folder
-xcopy /y /q ..\multithreadedapp\bin\release\netcoreapp3.1\* .
+xcopy /y /q ..\sampleapp\bin\release\netcoreapp3.1\* .
 
 if ["%~1"]==[""] (
     echo Did not pass a path to a coreclr repo, skipping copying private bits
