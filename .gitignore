@@ -33,7 +33,7 @@
 
 bin/*
 
-multithreadedapp/obj/*
-multithreadedapp/bin/*
+sampleapp/obj/*
+sampleapp/bin/*
 
 repro/*

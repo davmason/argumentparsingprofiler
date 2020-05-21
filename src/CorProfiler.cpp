@@ -48,12 +48,12 @@ HRESULT STDMETHODCALLTYPE CorProfiler::Initialize(IUnknown* pProfilerInfoUnk)
 {
     CorProfiler::s_profiler = this;
 
-    printf("In SampleProfiler::Initialize!");
+    printf("In SampleProfiler::Initialize!\n");
 
     HRESULT hr = pProfilerInfoUnk->QueryInterface(IID_ICorProfilerInfo10, (void**)& m_pProfilerInfo);
     if (hr != S_OK)
     {
-        printf("Got HR %X from QI for ICorProfilerInfo4", hr);
+        printf("Got HR %X from QI for ICorProfilerInfo4\n", hr);
         return E_FAIL;
     }
 
@@ -559,7 +559,7 @@ HRESULT STDMETHODCALLTYPE CorProfiler::EnterCallback(FunctionIDOrClientID functi
 {
     ManagedFunction thisFunc(m_pProfilerInfo, functionId.functionID, ELTType::Enter, eltInfo);
 
-    wcout << L"Function " << thisFunc.GetName() << L"entered" << endl;
+    wcout << L"Function " << thisFunc.GetName() << L" entered" << endl;
 
     wcout << L"    Args:" << endl;
 

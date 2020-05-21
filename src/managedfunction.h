@@ -29,12 +29,15 @@ private:
     ICorProfilerInfo10 *m_pProfilerInfo;
     COR_PRF_FRAME_INFO m_frameInfo;
 
+    bool populated;
     std::vector<ParameterType> m_paramTypes;
     std::vector<COR_PRF_FUNCTION_ARGUMENT_RANGE> m_argRanges;
 
+    void Populate();
     void PopulateArgs();
     void PopulateParamTypes();
 
+    void ConvertTypeRefToTypeDef(ModuleID refModule, mdToken typeRef, ModuleID *defModule, mdToken *typeDef);
     ParameterType ConvertTypeInfoToParameterType(ModuleID moduleID, TypeInfo info);
 
 public:

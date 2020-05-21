@@ -5,7 +5,7 @@
 using std::vector;
 
 ParamSigParser::ParamSigParser() :
-    m_paramCount(-1),
+    m_paramCount(0),
     m_callingConv(),
     m_currTypeByRef(false),
     m_indexType(-1),
@@ -69,7 +69,5 @@ int ParamSigParser::getParamCount()
 
 vector<TypeInfo> ParamSigParser::getParamTypes()
 {
-    assert(m_paramCount == m_paramTypes.size());
-    
     return m_paramTypes;
 }

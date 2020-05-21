@@ -9,11 +9,22 @@ ManagedFunction::ManagedFunction(ICorProfilerInfo10 *pProfilerInfo, FunctionID f
     m_eltInfo(eltInfo),
     m_pProfilerInfo(pProfilerInfo),
     m_frameInfo(),
+    populated(false),
     m_paramTypes(),
     m_argRanges()
 {
-    PopulateArgs();
-    PopulateParamTypes();
+
+}
+
+void ManagedFunction::Populate()
+{
+    if (!populated)
+    {
+        PopulateArgs();
+        PopulateParamTypes();
+
+        populated = true;
+    }
 }
 
 void ManagedFunction::PopulateArgs()
@@ -26,7 +37,7 @@ void ManagedFunction::PopulateArgs()
         return;
     }
 
-    NewArrayHolder<char> pArgumentInfo = new char[pcbArgumentInfo];
+    NewArrayHolder<char> pArgumentInfo(new char[pcbArgumentInfo]);
     if (FAILED(m_pProfilerInfo->GetFunctionEnter3Info(m_funcID, m_eltInfo, &m_frameInfo, &pcbArgumentInfo, (COR_PRF_FUNCTION_ARGUMENT_INFO*)((char *)pArgumentInfo))))
     {
         printf("Error in GetFunctionEnter3Info call 2!\n");;
@@ -80,9 +91,6 @@ void ManagedFunction::PopulateParamTypes()
         return;
     }
 
-    // TODO: get full type information
-    wprintf(L"Function entered: %s\n", String(wszMethod).ToWString().c_str());
-
     ParamSigParser parser;
     if (!parser.Parse((sig_byte*)pSig, pSigBytes))
     {
@@ -99,6 +107,55 @@ void ManagedFunction::PopulateParamTypes()
     }
 }
 
+
+void ManagedFunction::ConvertTypeRefToTypeDef(ModuleID refModule, mdToken typeRef, ModuleID *defModule, mdToken *typeDef)
+{
+    COMPtrHolder<IMetaDataImport2> refMetadataImport;
+    if (FAILED(m_pProfilerInfo->GetModuleMetaData(refModule, ofWrite, IID_IMetaDataImport2, reinterpret_cast<IUnknown **>(&refMetadataImport))))
+    {
+        printf("Error getting metadata.\n");
+        return;
+    }
+
+    mdToken scope;
+    WCHAR name[LONG_LENGTH];
+    ULONG cchName;
+    HRESULT hr = refMetadataImport->GetTypeRefProps(
+                                        typeRef,
+                                        &scope,
+                                        name,
+                                        LONG_LENGTH,
+                                        &cchName);
+    if (FAILED(hr))
+    {
+        printf("Error calling GetTypeRefProps.\n");
+        defModule = NULL;
+        typeDef = NULL;
+        return;
+    }
+
+    wprintf(L"In ConvertTypeRefToTypeDef name=%s\n", String(name).ToWString().c_str());
+
+    // if (TypeFromToken(scope) == mdtModuleRef)
+    // {
+    //     printf("TypeRef in module scope NYI.\n");
+    //     defModule = NULL;
+    //     typeDef = NULL;
+    //     return;
+    // }
+
+    // COMPtrHolder<IMetadataAssemblyImport> assemblyImport;
+    // if (FAILED(refMetadataImport->QueryInterface(IID_IMetaDataAssemblyImport, (void **)&assemblyImport)))
+    // {
+    //     printf("Failed to get IMetadataAssemblyImport\n");
+    //     defModule = NULL;
+    //     typeDef = NULL;
+    //     return;
+    // }
+
+
+}
+
 ParameterType ManagedFunction::ConvertTypeInfoToParameterType(ModuleID moduleID, TypeInfo info)
 {
     ParameterType paramType;
@@ -107,11 +164,26 @@ ParameterType ManagedFunction::ConvertTypeInfoToParameterType(ModuleID moduleID,
         // TODO: generics, the GetClassFromToken below won't work right for generics. Also
         // need to update the sig parser to read generics
         mdToken tok = TokenFromRid(info.index, info.indexType);
+
+        ModuleID targetModule = moduleID;
+        mdToken targetToken = tok;
+
+        if (TypeFromToken(tok) == mdtTypeRef)
+        {
+            mdToken typeDef;
+            ModuleID defModule;
+            ConvertTypeRefToTypeDef(tok, moduleID, &defModule, &typeDef);
+
+            targetModule = defModule;
+            targetToken = typeDef;
+        }
+
         ClassID classID;
-        HRESULT hr = m_pProfilerInfo->GetClassFromToken(moduleID, tok, &classID);
+        HRESULT hr = m_pProfilerInfo->GetClassFromToken(targetModule, targetToken, &classID);
         if (FAILED(hr))
         {
             printf("Failed to get ClassID from token");
+            classID = NULL;
         }
 
         paramType.referenceType = classID;
@@ -128,21 +200,25 @@ ParameterType ManagedFunction::ConvertTypeInfoToParameterType(ModuleID moduleID,
 
 size_t ManagedFunction::GetParamCount()
 {
+    Populate();
     return m_paramTypes.size();
 }
 
 ParameterType ManagedFunction::GetParamAt(size_t pos)
 {
+    Populate();
     return ParameterType();
 }
 
 size_t ManagedFunction::GetArgValueCount()
 {
+    Populate();
     return m_argRanges.size();
 }
 
 COR_PRF_FUNCTION_ARGUMENT_RANGE ManagedFunction::GetArgValueAt(size_t pos)
 {
+    Populate();
     return COR_PRF_FUNCTION_ARGUMENT_RANGE();
 }
 
