@@ -10,7 +10,8 @@ ParamSigParser::ParamSigParser() :
     m_currTypeByRef(false),
     m_indexType(-1),
     m_index(-1),
-    m_paramTypes()
+    m_paramTypes(),
+    m_hasGenericParams(false)
 {
 }
 
@@ -21,7 +22,14 @@ void ParamSigParser::NotifyCallingConvention(sig_elem_type callingConv)
 
 void ParamSigParser::NotifyParamCount(sig_count count)
 {
+    printf("NotifyParamCount: %d\n", count);
     m_paramCount = count;
+}
+
+void ParamSigParser::NotifyGenericParamCount(sig_count count)
+{
+    printf("NotifyGenericParamCount: %d\n", count);
+    m_hasGenericParams = true;
 }
 
 void ParamSigParser::NotifyBeginParam()
@@ -65,6 +73,11 @@ sig_elem_type ParamSigParser::getCallingConv()
 int ParamSigParser::getParamCount()
 {
     return m_paramCount;
+}
+
+bool ParamSigParser::hasGenericParams()
+{
+    return m_hasGenericParams;
 }
 
 vector<TypeInfo> ParamSigParser::getParamTypes()

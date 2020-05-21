@@ -563,13 +563,36 @@ HRESULT STDMETHODCALLTYPE CorProfiler::EnterCallback(FunctionIDOrClientID functi
 
     wcout << L"    Args:" << endl;
 
-    for (int i = 0; i < thisFunc.GetParamCount(); ++i)
+    if (thisFunc.HasGenericParams())
     {
-        ParameterType paramType = thisFunc.GetParamAt(i);
-        COR_PRF_FUNCTION_ARGUMENT_RANGE argValue = thisFunc.GetArgValueAt(i);
+        wcout << L"Generic parameters not supported, skipping args." << endl;
+        return S_OK;
+    }
 
-        ManagedArgPrinter printer(paramType, argValue, m_pProfilerInfo);
-        printer.PrettyPrint(/*indentLevel*/ 2);
+    bool hasThis = false;
+    size_t paramCount = thisFunc.GetParamCount();
+    size_t argCount = thisFunc.GetArgValueCount();
+    if (argCount == paramCount + 1)
+    {
+        hasThis = true;
+    }
+
+    for (size_t argPos = 0; argPos < argCount; ++argPos)
+    {
+        if (hasThis && argPos == 0)
+        {
+            wcout << L"This arg not implemented yet." << endl;
+        }
+        else
+        {
+            size_t paramPos = hasThis ? argCount + 1 : argCount;
+            assert(argCount == paramCount || argCount == paramCount + 1);
+            ParameterType paramType = thisFunc.GetParamAt(paramPos);
+            COR_PRF_FUNCTION_ARGUMENT_RANGE argValue = thisFunc.GetArgValueAt(argPos);
+
+            ManagedArgPrinter printer(paramType, argValue, m_pProfilerInfo);
+            printer.PrettyPrint(/*indentLevel*/ 2);
+        }
     }
 
     return S_OK;

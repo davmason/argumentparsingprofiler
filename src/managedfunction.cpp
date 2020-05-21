@@ -9,7 +9,8 @@ ManagedFunction::ManagedFunction(ICorProfilerInfo10 *pProfilerInfo, FunctionID f
     m_eltInfo(eltInfo),
     m_pProfilerInfo(pProfilerInfo),
     m_frameInfo(),
-    populated(false),
+    m_populated(false),
+    m_hasGenericParams(false),
     m_paramTypes(),
     m_argRanges()
 {
@@ -18,12 +19,12 @@ ManagedFunction::ManagedFunction(ICorProfilerInfo10 *pProfilerInfo, FunctionID f
 
 void ManagedFunction::Populate()
 {
-    if (!populated)
+    if (!m_populated)
     {
         PopulateArgs();
         PopulateParamTypes();
 
-        populated = true;
+        m_populated = true;
     }
 }
 
@@ -97,6 +98,8 @@ void ManagedFunction::PopulateParamTypes()
         printf("Signature wasn't parsed by the parser.\n");
         return;
     }
+
+    m_hasGenericParams = parser.hasGenericParams();
 
     vector<TypeInfo> infos = parser.getParamTypes();
     m_paramTypes.reserve(infos.size());
@@ -220,6 +223,11 @@ COR_PRF_FUNCTION_ARGUMENT_RANGE ManagedFunction::GetArgValueAt(size_t pos)
 {
     Populate();
     return COR_PRF_FUNCTION_ARGUMENT_RANGE();
+}
+
+bool ManagedFunction::HasGenericParams()
+{
+
 }
 
 String ManagedFunction::GetName()

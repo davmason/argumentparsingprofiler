@@ -22,11 +22,13 @@ private:
     sig_index_type  m_indexType;
     int m_index;
     std::vector<TypeInfo> m_paramTypes;
+    bool m_hasGenericParams;
 
 protected:
     virtual void NotifyCallingConvention(sig_elem_type callingConv);
 
     virtual void NotifyParamCount(sig_count count);
+    virtual void NotifyGenericParamCount(sig_count count);
 
     virtual void NotifyBeginParam();
     virtual void NotifyEndParam();
@@ -45,6 +47,7 @@ public:
 
     sig_elem_type getCallingConv();
     int getParamCount();
+    bool hasGenericParams();
     std::vector<TypeInfo> getParamTypes();
 };
 
